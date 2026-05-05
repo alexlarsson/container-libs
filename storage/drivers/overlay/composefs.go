@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -186,12 +187,22 @@ func mountBlobFile(blobFile *os.File, hasACL, useLoopDevice bool) (int, error) {
 	return mfd, nil
 }
 
-func openComposefsMount(blobPath string) (int, error) {
+func openComposefsMount(blobPath string, allowedFsVerity []string) (int, error) {
 	blobFile, err := os.Open(blobPath)
 	if err != nil {
 		return -1, err
 	}
 	defer blobFile.Close()
+
+	if len(allowedFsVerity) > 0 {
+		digest, err := fsverity.MeasureVerityPrefixed("composefs blob", int(blobFile.Fd()))
+		if err != nil {
+			return -1, fmt.Errorf("measure fs-verity on composefs blob: %w", err)
+		}
+		if !slices.Contains(allowedFsVerity, digest) {
+			return -1, fmt.Errorf("composefs blob %s has fs-verity digest %q, not in allowed list", blobPath, digest)
+		}
+	}
 
 	hasACL, err := hasACL(blobFile)
 	if err != nil {
@@ -210,8 +221,8 @@ func openComposefsMount(blobPath string) (int, error) {
 	return mountBlobFile(blobFile, hasACL, true)
 }
 
-func mountComposefsBlob(dataDir, mountPoint string) error {
-	mfd, err := openComposefsMount(getComposefsBlob(dataDir))
+func mountComposefsBlob(dataDir, mountPoint string, allowedFsVerity []string) error {
+	mfd, err := openComposefsMount(getComposefsBlob(dataDir), allowedFsVerity)
 	if err != nil {
 		return err
 	}
