@@ -39,6 +39,7 @@ type ImageData struct {
 	History      []ociv1.History               `json:"History"`
 	NamesHistory []string                      `json:"NamesHistory"`
 	HealthCheck  *manifest.Schema2HealthConfig `json:"Healthcheck,omitempty"`
+	LayersData   []types.ImageInspectLayer     `json:"LayersData,omitempty"`
 }
 
 // DriverData includes data on the storage driver of the image.
@@ -142,6 +143,7 @@ func (i *Image) Inspect(ctx context.Context, options *InspectOptions) (*ImageDat
 		User:         ociImage.Config.User,
 		History:      ociImage.History,
 		NamesHistory: i.NamesHistory(),
+		LayersData:   info.LayersData,
 	}
 
 	if options.WithParent {
